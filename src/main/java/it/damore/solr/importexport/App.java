@@ -220,19 +220,36 @@ public class App {
     try (BufferedReader pw = new BufferedReader(new FileReader(outputFile))) {
       pw.lines().collect(StreamUtils.batchCollector(config.getBlockSize(), l -> {
           List<SolrInputDocument> collect = l.stream()
-                                             .map(App::json2SolrInputDocument)
-                                             .map(d -> {
-                                               skipFieldsEquals.forEach(f -> d.removeField(f.getText()));
-                                               if(!skipFieldsStartWith.isEmpty()) {
-                                                 d.getFieldNames().removeIf(name -> skipFieldsStartWith.stream()
-                                                     .anyMatch(skipField -> name.startsWith(skipField.getText())));
-                                               }
-                                               if(!skipFieldsEndWith.isEmpty()) {
-                                                 d.getFieldNames().removeIf(name -> skipFieldsEndWith.stream()
-                                                     .anyMatch(skipField -> name.endsWith(skipField.getText())));
-                                               }
-                                               return d;
-                                             })
+            .map(App::json2SolrInputDocument)
+                  .map(d -> {
+                    if (d.containsKey("_src_")) {
+                      d.removeField("_src_");
+                      d.addField("_src_", null);
+                    }
+                    if(d.containsKey("log") && d.getField("log")!=null && d.getField("log").toString().length()>0) {
+                      String log = d.getField("log").toString();
+                      d.removeField("log");
+                      log = log.substring(0,Math.min(32765,log.length()));
+
+                      if(!d.containsKey("environments.log")) {
+                        d.addField("environments.log",log);
+                      } else if(d.containsKey("environments.log") && d.getField("environments.log")!=null && d.getField("environments.log").toString().trim().length()<=0) {
+                        d.removeField("environments.log");
+                        d.addField("environments.log",log);
+                      }
+                    }
+
+                    skipFieldsEquals.forEach(f -> d.removeField(f.getText()));
+                    if(!skipFieldsStartWith.isEmpty()) {
+                      d.getFieldNames().removeIf(name -> skipFieldsStartWith.stream()
+                              .anyMatch(skipField -> name.startsWith(skipField.getText())));
+                    }
+                    if(!skipFieldsEndWith.isEmpty()) {
+                      d.getFieldNames().removeIf(name -> skipFieldsEndWith.stream()
+                              .anyMatch(skipField -> name.endsWith(skipField.getText())));
+                    }
+                    return d;
+                  })
                                              .collect(Collectors.toList());
         if (!insertBatch(client, collect)) {
           int retry = 5;
