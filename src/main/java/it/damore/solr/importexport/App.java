@@ -84,14 +84,8 @@ public class App {
                              .stream()
                              .filter(s -> s.getMatch() == MatchType.EQUAL)
                              .collect(Collectors.toSet());
-    skipFieldsStartWith = config.getSkipFieldsSet()
-                                .stream()
-                                .filter(s -> s.getMatch() == MatchType.STARTS_WITH)
-                                .collect(Collectors.toSet());
-    skipFieldsEndWith = config.getSkipFieldsSet()
-                              .stream()
-                              .filter(s -> s.getMatch() == MatchType.ENDS_WITH)
-                              .collect(Collectors.toSet());
+    skipFieldsStartWith = Collections.emptySet();
+    skipFieldsEndWith = Collections.emptySet();
     skipCount = config.getSkipCount();
     commitAfter = config.getCommitAfter();
 
