@@ -35,12 +35,8 @@ import java.net.URL;
 import java.net.URLConnection;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
-import java.util.Base64;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.Map.Entry;
-import java.util.Set;
-import java.util.TimeZone;
 import java.util.stream.Collectors;
 
 /*
@@ -185,8 +181,9 @@ public class App {
    * @return
    */
   private static SolrInputDocument json2SolrInputDocument(String j) {
-    SolrInputDocument s = new SolrInputDocument();
+
     try {
+      SolrInputDocument s = new SolrInputDocument();
       Map<String, Object> map = objectMapper.readValue(j, new TypeReference<Map<String, Object>>() {
       });
       for (Entry<String, Object> e : map.entrySet()) {
@@ -194,13 +191,13 @@ public class App {
               .equals("_version_"))
           s.addField(e.getKey(), e.getValue());
       }
+      return s;
     } catch (IOException e) {
       logger.error("Error while converting json2SolrInputDocument. json = " + j + " Error = " + e.getMessage());
       numOfFailures++;
       e.printStackTrace();
-      //throw new RuntimeException(e);
+      return null;
     }
-    return s;
   }
 
   /**
@@ -227,6 +224,7 @@ public class App {
       pw.lines().collect(StreamUtils.batchCollector(config.getBlockSize(), l -> {
         List<SolrInputDocument> collect = l.stream()
                 .map(App::json2SolrInputDocument)
+                .filter(Objects::nonNull)
                 .map(d -> {
                   if (d.containsKey("_src_")) {
                     d.removeField("_src_");
