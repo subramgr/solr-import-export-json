@@ -65,6 +65,7 @@ public class App {
   private static long              skipCount;
   private static Integer           commitAfter;
   private static long              lastCommit = 0;
+  private static int               numOfFailures = 0;
 
   private static Set<SkipField> skipFieldsEquals;
   private static Set<SkipField> skipFieldsStartWith;
@@ -129,6 +130,8 @@ public class App {
       } catch (SolrServerException | IOException e) {
         // TODO Auto-generated catch block
         e.printStackTrace();
+      } finally {
+        System.out.println("Number of failures " + numOfFailures);
       }
     }
 
@@ -192,7 +195,9 @@ public class App {
           s.addField(e.getKey(), e.getValue());
       }
     } catch (IOException e) {
-      throw new RuntimeException(e);
+      logger.error("Error while converting json2SolrInputDocument. json = " + j);
+      numOfFailures++;
+      //throw new RuntimeException(e);
     }
     return s;
   }
@@ -219,42 +224,42 @@ public class App {
 
     try (BufferedReader pw = new BufferedReader(new FileReader(outputFile))) {
       pw.lines().collect(StreamUtils.batchCollector(config.getBlockSize(), l -> {
-          List<SolrInputDocument> collect = l.stream()
-            .map(App::json2SolrInputDocument)
-                  .map(d -> {
-                    if (d.containsKey("_src_")) {
-                      d.removeField("_src_");
-                      d.addField("_src_", null);
-                    }
-                    if(d.containsKey("log") && d.getField("log")!=null && d.getField("log").toString().length()>0) {
-                      String log = d.getField("log").toString();
-                      d.removeField("log");
-                      log = log.substring(0,Math.min(32765,log.length()));
+        List<SolrInputDocument> collect = l.stream()
+                .map(App::json2SolrInputDocument)
+                .map(d -> {
+                  if (d.containsKey("_src_")) {
+                    d.removeField("_src_");
+                    d.addField("_src_", null);
+                  }
+                  if (d.containsKey("log") && d.getField("log") != null && d.getField("log").toString().length() > 0) {
+                    String log = d.getField("log").toString();
+                    d.removeField("log");
+                    log = log.substring(0, Math.min(32765, log.length()));
 
-                      if(!d.containsKey("environments.log")) {
-                        d.addField("environments.log",log);
-                      } else if(d.containsKey("environments.log") && d.getField("environments.log")!=null && d.getField("environments.log").toString().trim().length()<=0) {
-                        d.removeField("environments.log");
-                        d.addField("environments.log",log);
-                      }
+                    if (!d.containsKey("environments.log")) {
+                      d.addField("environments.log", log);
+                    } else if (d.containsKey("environments.log") && d.getField("environments.log") != null && d.getField("environments.log").toString().trim().length() <= 0) {
+                      d.removeField("environments.log");
+                      d.addField("environments.log", log);
                     }
+                  }
 
-                    skipFieldsEquals.forEach(f -> d.removeField(f.getText()));
-                    if(!skipFieldsStartWith.isEmpty()) {
-                      d.getFieldNames().removeIf(name -> skipFieldsStartWith.stream()
-                              .anyMatch(skipField -> name.startsWith(skipField.getText())));
-                    }
-                    if(!skipFieldsEndWith.isEmpty()) {
-                      d.getFieldNames().removeIf(name -> skipFieldsEndWith.stream()
-                              .anyMatch(skipField -> name.endsWith(skipField.getText())));
-                    }
-                    return d;
-                  })
-                                             .collect(Collectors.toList());
+                  skipFieldsEquals.forEach(f -> d.removeField(f.getText()));
+                  if (!skipFieldsStartWith.isEmpty()) {
+                    d.getFieldNames().removeIf(name -> skipFieldsStartWith.stream()
+                            .anyMatch(skipField -> name.startsWith(skipField.getText())));
+                  }
+                  if (!skipFieldsEndWith.isEmpty()) {
+                    d.getFieldNames().removeIf(name -> skipFieldsEndWith.stream()
+                            .anyMatch(skipField -> name.endsWith(skipField.getText())));
+                  }
+                  return d;
+                })
+                .collect(Collectors.toList());
         if (!insertBatch(client, collect)) {
           int retry = 5;
           while (--retry > 0 && !insertBatch(client, collect))//randomly when imported 10M documents, solr failed on Timeout exactly 10 minutes..
-          ;
+            ;
         }
       }));
     }
