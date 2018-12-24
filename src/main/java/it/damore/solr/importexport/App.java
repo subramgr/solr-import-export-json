@@ -195,8 +195,9 @@ public class App {
           s.addField(e.getKey(), e.getValue());
       }
     } catch (IOException e) {
-      logger.error("Error while converting json2SolrInputDocument. json = " + j);
+      logger.error("Error while converting json2SolrInputDocument. json = " + j + " Error = " + e.getMessage());
       numOfFailures++;
+      e.printStackTrace();
       //throw new RuntimeException(e);
     }
     return s;
