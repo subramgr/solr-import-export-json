@@ -315,6 +315,7 @@ public class App {
 
     DateFormat df = new SimpleDateFormat(config.getDateTimeFormat());
     objectMapper.setDateFormat(df);
+    objectMapper.getSerializationConfig().with(df);
     objectMapper.configure(SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS, true);
 
     QueryResponse r = client.query(solrQuery);
